@@ -435,6 +435,8 @@ test-results/
 *.app
 !src/MbtiEnterpriseSimilarity.App/
 !src/MbtiEnterpriseSimilarity.App/**
+src/MbtiEnterpriseSimilarity.App/bin/
+src/MbtiEnterpriseSimilarity.App/obj/
 
 # content below from: https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
 # General
