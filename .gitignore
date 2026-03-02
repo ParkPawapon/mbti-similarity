@@ -433,6 +433,8 @@ test-results/
 # Mac bundle stuff
 *.dmg
 *.app
+!src/MbtiEnterpriseSimilarity.App/
+!src/MbtiEnterpriseSimilarity.App/**
 
 # content below from: https://github.com/github/gitignore/blob/main/Global/macOS.gitignore
 # General
