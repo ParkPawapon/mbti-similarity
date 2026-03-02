@@ -1,0 +1,8 @@
+input=/Users/pawaponthammalangka/Documents/projects/mbti-similarity/data/CSS121_MBTI_2026_68.csv
+target_id=68090500418
+mode=zscore
+weights=Ne=0.1250,Ni=0.1250,Te=0.1250,Ti=0.1250,Se=0.1250,Si=0.1250,Fe=0.1250,Fi=0.1250
+total_rows=57
+valid_rows=49
+skipped_rows=8
+skipped_ratio=0.1404
