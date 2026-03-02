@@ -1,63 +1,77 @@
 # MBTI Similarity Analyzer
 
-โปรเจกต์นี้ใช้สำหรับงาน CSS121 Data Science Application เพื่อหา
-`Top-N คนที่คะแนน Ne, Ni, Te, Ti, Se, Si, Fe, Fi ใกล้กับรหัสเป้าหมายมากที่สุด`
-โดยรองรับกรณีข้อมูลยังไม่ครบ (แถวที่คะแนนไม่ครบจะถูกข้ามอัตโนมัติ)
+This repository contains a production-style CLI project for a CSS121 Data Science Application assignment.
 
-## จุดเด่นเวอร์ชันนี้ (Production-ready)
+The goal is simple: given a target student ID, find the Top-N students with the most similar cognitive function profile across these eight dimensions:
 
-- รองรับ `--exclude-id` เพื่อกันแถวพิเศษ (เช่นอาจารย์/test account)
-- รองรับโหมดคำนวณ 2 แบบ
-  - `--mode raw` : ใช้คะแนนดิบ
-  - `--mode zscore` : normalize (z-score) ก่อนคำนวณ
-- รองรับ `--weights` สำหรับปรับน้ำหนักแต่ละมิติแบบปลอดภัย (validate + normalize อัตโนมัติ)
-- รองรับ `--max-skipped-ratio` เป็น data quality gate (fail ทันทีเมื่อข้อมูลเสียเกิน threshold)
-- Export รายงานทั้ง `.md` และ `.json` พร้อม metadata ของโหมด/น้ำหนักที่ใช้จริง
-- มี structured logging (JSON) พร้อม `runId`
-- มี Unit + Integration tests ครอบคลุม parsing, distance logic, exclusion, weighting, data quality gate
-- มี CI workflow สำหรับ restore/build/test
-- ล็อก .NET SDK ด้วย `global.json` เพื่อรันเวอร์ชันเดียวกันทุกเครื่อง
-- มี `Dockerfile` สำหรับ reproducible container runtime
-- มี one-command script `./scripts/run-prod.sh` ลด human error
-- มี R script เสริมสำหรับ visualization/report เชิงสถิติ
+- `Ne`
+- `Ni`
+- `Te`
+- `Ti`
+- `Se`
+- `Si`
+- `Fe`
+- `Fi`
 
-## สูตรคำนวณที่ใช้
+Rows with incomplete score data are skipped automatically.
 
-ใช้ **Weighted Euclidean Distance**:
+## How similarity is calculated
 
-`distance = sqrt( Σ( w_i * (x_i - y_i)^2 ) )`
+The analyzer uses weighted Euclidean distance:
 
-โดย `w_i` คือ weight ของแต่ละมิติ (`Ne, Ni, Te, Ti, Se, Si, Fe, Fi`) และระบบจะ normalize ให้ `Σw_i = 1` เสมอ
+`distance = sqrt( sum( w_i * (x_i - y_i)^2 ) )`
 
-## โครงสร้างโปรเจกต์
+- `w_i` is the weight of each dimension.
+- Weights are always normalized so that `sum(w_i) = 1`.
+- Lower distance means higher similarity.
 
-- `data/` : ไฟล์ข้อมูล CSV
-- `src/MbtiEnterpriseSimilarity.App` : แอปหลัก (CLI)
-- `tests/MbtiEnterpriseSimilarity.Tests` : ชุด Unit Tests
-- `reports/` : ไฟล์ผลลัพธ์ที่ generate จากการรัน
-- `scripts/run-prod.sh` : คำสั่งเดียวสำหรับ production run
-- `analytics/visualize_report.R` : สคริปต์ R สำหรับ visualization/report เสริม
-- `renv.lock` : ล็อก R environment สำหรับ reproducibility
-- `global.json` : ล็อก SDK
-- `Dockerfile` : container build/runtime
+The tool supports two scoring modes:
 
-## Dataset ในโปรเจกต์
+- `raw`: use original values directly.
+- `zscore`: normalize each dimension with z-score before distance calculation.
+
+## Key capabilities
+
+- Exclude special IDs with `--exclude-id` (supports multiple IDs).
+- Choose `raw` or `zscore` mode.
+- Provide custom weights with strict validation.
+- Enforce data quality with `--max-skipped-ratio`.
+- Export both Markdown and JSON reports.
+- Structured JSON logging with a per-run `runId`.
+- Unit and integration tests.
+- CI pipeline (restore/build/test).
+- Reproducible `.NET` setup via `global.json`.
+- Reproducible container runtime via `Dockerfile`.
+- One-command production runner: `./scripts/run-prod.sh`.
+- Optional R-based visualization/reporting.
+
+## Repository structure
+
+- `data/` - input CSV files
+- `src/MbtiEnterpriseSimilarity.App/` - main CLI application
+- `tests/MbtiEnterpriseSimilarity.Tests/` - test suite
+- `reports/` - generated outputs
+- `scripts/run-prod.sh` - one-command production runner
+- `analytics/visualize_report.R` - optional R analytics/visualization
+- `renv.lock` - locked R environment
+- `global.json` - locked .NET SDK
+- `.github/workflows/ci.yml` - CI workflow
+
+## Dataset used in this project
 
 - `data/CSS121_MBTI_2026_68.csv`
 
-## Reproducible Environment
+## Requirements
 
-- SDK lock: `global.json` (กำหนด `9.0.305`)
-- Build policy: `Directory.Build.props` (analyzers + warning as error)
-- CI pipeline: `.github/workflows/ci.yml`
+- .NET SDK from `global.json` (currently `9.0.305`)
+- Optional: R (`Rscript`) if you want visualization outputs
 
-## วิธีรัน
+## Quick start
 
 ```bash
 dotnet build
 dotnet test
 
-# โหมด normalize z-score + exclude แถวพิเศษ + น้ำหนัก default (equal)
 dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
   --input "./data/CSS121_MBTI_2026_68.csv" \
   --target-id 68090500418 \
@@ -68,13 +82,13 @@ dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
   --output-dir "./reports"
 ```
 
-## One-Command Production Run
+## One-command production run
 
 ```bash
 ./scripts/run-prod.sh
 ```
 
-ตัวอย่าง custom config:
+Example with custom settings:
 
 ```bash
 EXCLUDE_IDS="99999999999,68090500456" \
@@ -84,34 +98,36 @@ WEIGHTS="Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
 ./scripts/run-prod.sh
 ```
 
-ตัวแปรที่ script รองรับ:
-- `INPUT_PATH`, `TARGET_ID`, `TOP_N`
-- `MODE`, `WEIGHTS`
+### `run-prod.sh` environment variables
+
+- `INPUT_PATH`
+- `TARGET_ID`
+- `TOP_N`
+- `MODE`
+- `WEIGHTS`
 - `EXCLUDE_IDS`
 - `MAX_SKIPPED_RATIO`
 - `OUTPUT_DIR`
 - `RUN_TESTS` (`1`/`0`)
 - `WITH_R_VIS` (`1`/`0`)
-- `KEEP_ONLY_LATEST` (`1`/`0`, default=`1`)
-- `KEEP_REPORT_FORMAT` (`md`/`json`/`both`, default=`md`)
+- `KEEP_ONLY_LATEST` (`1`/`0`, default: `1`)
+- `KEEP_REPORT_FORMAT` (`md`/`json`/`both`, default: `md`)
 
-หมายเหตุ:
-- ค่า default ของ `KEEP_ONLY_LATEST=1` และ `KEEP_REPORT_FORMAT=md` จะลบรายงานเก่าใน `reports/` และเก็บไว้เฉพาะรายงาน `.md` ล่าสุดไฟล์เดียว
-- ถ้าต้องการเก็บทั้งคู่ (`.md` + `.json`) ให้ตั้ง `KEEP_REPORT_FORMAT=both`
+Default behavior keeps only the latest Markdown report in `reports/`.
+If you want both report files, set `KEEP_REPORT_FORMAT=both`.
 
-ตัวอย่าง custom weights:
+## CLI arguments
 
-```bash
-dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
-  --input "./data/CSS121_MBTI_2026_68.csv" \
-  --target-id 68090500418 \
-  --exclude-id 99999999999 \
-  --mode zscore \
-  --weights "Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
-  --output-dir "./reports"
-```
+- `--input` (required): path to the CSV file
+- `--target-id` (required): target student ID
+- `--top` (optional, default: `5`): number of matches to return
+- `--output-dir` (optional, default: `./output`): output directory
+- `--exclude-id` (optional): IDs to exclude (repeat flag or comma-separated)
+- `--mode` (optional, default: `raw`): `raw` or `zscore`
+- `--weights` (optional): `Ne=...,Ni=...,Te=...,Ti=...,Se=...,Si=...,Fe=...,Fi=...`
+- `--max-skipped-ratio` (optional, default: `1.0`): allowed skipped-row ratio in `[0, 1]`
 
-## Docker (Reproducible Runtime)
+## Docker (reproducible runtime)
 
 Build image:
 
@@ -125,7 +141,7 @@ Run with defaults:
 docker run --rm -v "$(pwd)/reports:/app/reports" mbti-similarity:latest
 ```
 
-Run with custom args:
+Run with custom arguments:
 
 ```bash
 docker run --rm -v "$(pwd)/reports:/app/reports" mbti-similarity:latest \
@@ -139,19 +155,15 @@ docker run --rm -v "$(pwd)/reports:/app/reports" mbti-similarity:latest \
   --output-dir /app/reports
 ```
 
-## R Visualization (Supplementary)
+## Optional R visualization
 
-R script เป็นส่วนเสริมด้าน visualization/report โดยไม่กระทบ production pipeline หลัก C#.
-
-Prerequisite:
-- ต้องมี `Rscript` ในเครื่อง
-- แนะนำ restore R environment จาก lockfile ก่อนรัน:
+Restore locked R packages first:
 
 ```bash
 Rscript -e 'renv::restore(prompt = FALSE)'
 ```
 
-Run:
+Run R analytics:
 
 ```bash
 Rscript ./analytics/visualize_report.R \
@@ -165,50 +177,29 @@ Rscript ./analytics/visualize_report.R \
   --output-dir "./reports/r"
 ```
 
-ไฟล์ output จาก R:
+R outputs:
+
 - `top_matches_r.csv`
 - `summary_r.txt`
 - `top_matches_barplot.png`
 - `dimension_diff_heatmap.png`
 
-## พารามิเตอร์ CLI
+## Example result (equal weights, z-score mode)
 
-- `--input` path ไฟล์ CSV (จำเป็น)
-- `--target-id` รหัสนักศึกษาเป้าหมาย (จำเป็น)
-- `--top` จำนวนอันดับที่ต้องการ (default = 5)
-- `--output-dir` โฟลเดอร์เก็บรายงาน (default = `./output`)
-- `--exclude-id` รหัสที่ต้องการตัดออก (ใส่ซ้ำได้ หรือคั่น comma ได้)
-- `--mode` `raw` หรือ `zscore` (default = `raw`)
-- `--weights` รูปแบบ `Ne=...,Ni=...,Te=...,Ti=...,Se=...,Si=...,Fe=...,Fi=...`
-- `--max-skipped-ratio` ค่าได้ช่วง `0..1` (default = `1.0`)
+Target: `68090500418`
 
-## ผลลัพธ์ตัวอย่าง (Equal Weights)
+Top 5 matches:
 
-รันด้วย:
-- `--exclude-id 99999999999`
-- `--mode zscore`
-- `--weights` default equal (normalized เป็น `0.1250` ทุกมิติ)
+1. `68090500404` - Chanyanuch Thanusorn - `0.5446`
+2. `68090500427` - Atilak Modetad - `0.5472`
+3. `68090500429` - Asnawee Ezor - `0.5597`
+4. `68090500421` - Yossakon Rungrattanrarak - `0.5602`
+5. `68090500416` - Peerawit Umphaisri - `0.5996`
 
-ผล Top 5 ของ `68090500418`:
+## Reproducibility and quality controls
 
-1. `68090500404` - Chanyanuch Thanusorn - Distance `0.5446`
-2. `68090500427` - Atilak Modetad - Distance `0.5472`
-3. `68090500429` - Asnawee Ezor - Distance `0.5597`
-4. `68090500421` - Yossakon Rungrattanrarak - Distance `0.5602`
-5. `68090500416` - Peerawit Umphaisri - Distance `0.5996`
-
-รายงานอ้างอิง:
-- `reports/similarity_68090500418_zscore_equal_top5_20260302_224118.md`
-
-ตัวอย่างรายงานเมื่อใช้ custom weights:
-- `reports/similarity_68090500418_zscore_custom_top5_20260302_220341.md`
-
-## มาตรฐานคุณภาพ
-
-- แยก Domain/Service/CLI ชัดเจน
-- Input validation ครบ (mode, exclude-id, weights)
-- Error handling ชัดเจนและอ่านง่าย
-- Structured logging แบบ JSON
-- Data quality threshold gate
-- CI: `.github/workflows/ci.yml`
-- Build/Test ผ่านเรียบร้อย
+- SDK lock: `global.json`
+- Analyzer rules + warnings as errors: `Directory.Build.props`
+- CI checks: `.github/workflows/ci.yml`
+- Structured runtime logging in JSON
+- Data-quality gate with `--max-skipped-ratio`
