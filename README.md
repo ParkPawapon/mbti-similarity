@@ -1,8 +1,6 @@
 # MBTI Similarity Analyzer
 
-This repository contains a production-style CLI project for a CSS121 Data Science Application assignment.
-
-The goal is simple: given a target student ID, find the Top-N students with the most similar cognitive function profile across these eight dimensions:
+This repository contains a Java command-line application for a CSS121 assignment. It finds the students whose MBTI cognitive function scores are most similar to a target student across these eight dimensions:
 
 - `Ne`
 - `Ni`
@@ -13,67 +11,88 @@ The goal is simple: given a target student ID, find the Top-N students with the 
 - `Fe`
 - `Fi`
 
-Rows with incomplete score data are skipped automatically.
+The project is implemented with plain Java 17 and `javac` only. There is no Maven, Gradle, or .NET dependency left in the codebase.
 
-## How similarity is calculated
+## Instructor Quick Start
 
-The analyzer uses weighted Euclidean distance:
+If Java 17 is already installed, these commands are enough:
 
-`distance = sqrt( sum( w_i * (x_i - y_i)^2 ) )`
+```bash
+git clone https://github.com/ParkPawapon/mbti-similarity.git
+cd mbti-similarity
+./scripts/test.sh
+./scripts/run-prod.sh
+```
 
-- `w_i` is the weight of each dimension.
-- Weights are always normalized so that `sum(w_i) = 1`.
-- Lower distance means higher similarity.
+The default production run uses `data/CSS121_MBTI_2026_68_2.csv` and writes the latest Markdown report to `reports/`.
 
-The tool supports two scoring modes:
+## Dataset
 
-- `raw`: use original values directly.
-- `zscore`: normalize each dimension with z-score before distance calculation.
+Primary dataset:
 
-## Key capabilities
+- `data/CSS121_MBTI_2026_68_2.csv`
 
-- Exclude special IDs with `--exclude-id` (supports multiple IDs).
-- Choose `raw` or `zscore` mode.
-- Provide custom weights with strict validation.
-- Enforce data quality with `--max-skipped-ratio`.
-- Export both Markdown and JSON reports.
-- Structured JSON logging with a per-run `runId`.
-- Unit and integration tests.
-- CI pipeline (restore/build/test).
-- Reproducible `.NET` setup via `global.json`.
-- Reproducible container runtime via `Dockerfile`.
-- One-command production runner: `./scripts/run-prod.sh`.
-- Optional R-based visualization/reporting.
+The current dataset has a blank first header cell. The CSV loader handles that case safely by treating the first column as `ID`.
 
-## Repository structure
+## Features
 
-- `data/` - input CSV files
-- `src/MbtiEnterpriseSimilarity.App/` - main CLI application
-- `tests/MbtiEnterpriseSimilarity.Tests/` - test suite
-- `reports/` - generated outputs
-- `scripts/run-prod.sh` - one-command production runner
-- `analytics/visualize_report.R` - optional R analytics/visualization
-- `renv.lock` - locked R environment
-- `global.json` - locked .NET SDK
-- `.github/workflows/ci.yml` - CI workflow
+- `raw` and `zscore` similarity modes
+- weighted Euclidean distance
+- custom dimension weights with validation
+- repeated or comma-separated `--exclude-id`
+- data-quality gate with `--max-skipped-ratio`
+- console summary output
+- Markdown and JSON report export
+- plain Java test harness for unit and integration coverage
 
-## Dataset used in this project
+## Project Structure
 
-- `data/CSS121_MBTI_2026_68.csv`
+- `src/main/java/` main source code
+- `src/test/java/` plain Java test suite
+- `data/` CSV datasets
+- `scripts/build.sh` compile with `javac`
+- `scripts/test.sh` compile and run all tests
+- `scripts/run-prod.sh` default production run
+- `reports/` generated outputs
 
 ## Requirements
 
-- .NET SDK from `global.json` (currently `9.0.305`)
-- Optional: R (`Rscript`) if you want visualization outputs
+- Java 17 or newer
+- `javac`
+- a POSIX shell for the scripts in `scripts/`
 
-## Quick start
+## Build
 
 ```bash
-dotnet build
-dotnet test
+./scripts/build.sh
+```
 
-dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
-  --input "./data/CSS121_MBTI_2026_68.csv" \
+Manual compile:
+
+```bash
+mkdir -p build/classes/main
+javac -d build/classes/main $(find src/main/java -name '*.java' | sort)
+```
+
+## Test
+
+```bash
+./scripts/test.sh
+```
+
+## Run
+
+Default run:
+
+```bash
+./scripts/run-prod.sh
+```
+
+Direct run:
+
+```bash
+java -cp build/classes/main com.mbti.similarity.Main \
+  --input "./data/CSS121_MBTI_2026_68_2.csv" \
   --target-id 68090500418 \
   --top 5 \
   --max-skipped-ratio 0.2 \
@@ -82,23 +101,41 @@ dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
   --output-dir "./reports"
 ```
 
-## One-command production run
+Example with custom weights:
 
 ```bash
-./scripts/run-prod.sh
+java -cp build/classes/main com.mbti.similarity.Main \
+  --input "./data/CSS121_MBTI_2026_68_2.csv" \
+  --target-id 68090500418 \
+  --mode zscore \
+  --weights "Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
+  --output-dir "./reports"
 ```
 
-Example with custom settings:
+## CLI Arguments
 
-```bash
-EXCLUDE_IDS="99999999999,68090500456" \
-MAX_SKIPPED_RATIO=0.2 \
-MODE=zscore \
-WEIGHTS="Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
-./scripts/run-prod.sh
-```
+- `--input` required path to the CSV file
+- `--target-id` required student ID
+- `--top` optional, default `5`
+- `--output-dir` optional, default `./output`
+- `--exclude-id` optional, repeatable or comma-separated
+- `--mode` optional, `raw` or `zscore`, default `raw`
+- `--weights` optional, format `Ne=...,Ni=...,Te=...,Ti=...,Se=...,Si=...,Fe=...,Fi=...`
+- `--max-skipped-ratio` optional, range `[0, 1]`, default `1.0`
 
-### `run-prod.sh` environment variables
+## Default Production Configuration
+
+`./scripts/run-prod.sh` uses these defaults:
+
+- input: `data/CSS121_MBTI_2026_68_2.csv`
+- target: `68090500418`
+- top: `5`
+- mode: `zscore`
+- excluded IDs: `99999999999`
+- max skipped ratio: `0.2`
+- output directory: `reports/`
+
+Supported environment variables:
 
 - `INPUT_PATH`
 - `TARGET_ID`
@@ -108,98 +145,26 @@ WEIGHTS="Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
 - `EXCLUDE_IDS`
 - `MAX_SKIPPED_RATIO`
 - `OUTPUT_DIR`
-- `RUN_TESTS` (`1`/`0`)
-- `WITH_R_VIS` (`1`/`0`)
-- `KEEP_ONLY_LATEST` (`1`/`0`, default: `1`)
-- `KEEP_REPORT_FORMAT` (`md`/`json`/`both`, default: `md`)
+- `RUN_TESTS`
+- `KEEP_ONLY_LATEST`
+- `KEEP_REPORT_FORMAT`
 
-Default behavior keeps only the latest Markdown report in `reports/`.
-If you want both report files, set `KEEP_REPORT_FORMAT=both`.
+## Current Reference Result
 
-## CLI arguments
+Configuration:
 
-- `--input` (required): path to the CSV file
-- `--target-id` (required): target student ID
-- `--top` (optional, default: `5`): number of matches to return
-- `--output-dir` (optional, default: `./output`): output directory
-- `--exclude-id` (optional): IDs to exclude (repeat flag or comma-separated)
-- `--mode` (optional, default: `raw`): `raw` or `zscore`
-- `--weights` (optional): `Ne=...,Ni=...,Te=...,Ti=...,Se=...,Si=...,Fe=...,Fi=...`
-- `--max-skipped-ratio` (optional, default: `1.0`): allowed skipped-row ratio in `[0, 1]`
-
-## Docker (reproducible runtime)
-
-Build image:
-
-```bash
-docker build -t mbti-similarity:latest .
-```
-
-Run with defaults:
-
-```bash
-docker run --rm -v "$(pwd)/reports:/app/reports" mbti-similarity:latest
-```
-
-Run with custom arguments:
-
-```bash
-docker run --rm -v "$(pwd)/reports:/app/reports" mbti-similarity:latest \
-  --input /app/data/CSS121_MBTI_2026_68.csv \
-  --target-id 68090500418 \
-  --top 5 \
-  --max-skipped-ratio 0.2 \
-  --exclude-id 99999999999 \
-  --mode zscore \
-  --weights "Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
-  --output-dir /app/reports
-```
-
-## Optional R visualization
-
-Restore locked R packages first:
-
-```bash
-Rscript -e 'renv::restore(prompt = FALSE)'
-```
-
-Run R analytics:
-
-```bash
-Rscript ./analytics/visualize_report.R \
-  --input "./data/CSS121_MBTI_2026_68.csv" \
-  --target-id 68090500418 \
-  --top 5 \
-  --mode zscore \
-  --exclude-id 99999999999 \
-  --max-skipped-ratio 0.2 \
-  --weights "Ne=1,Ni=1,Te=1,Ti=1,Se=1,Si=1,Fe=1,Fi=1" \
-  --output-dir "./reports/r"
-```
-
-R outputs:
-
-- `top_matches_r.csv`
-- `summary_r.txt`
-- `top_matches_barplot.png`
-- `dimension_diff_heatmap.png`
-
-## Example result (equal weights, z-score mode)
-
-Target: `68090500418`
+- dataset: `data/CSS121_MBTI_2026_68_2.csv`
+- target: `68090500418`
+- mode: `zscore`
+- excluded IDs: `99999999999`
+- weights: equal
+- valid rows: `57`
+- skipped rows: `0`
 
 Top 5 matches:
 
-1. `68090500404` - Chanyanuch Thanusorn - `0.5446`
-2. `68090500427` - Atilak Modetad - `0.5472`
-3. `68090500429` - Asnawee Ezor - `0.5597`
-4. `68090500421` - Yossakon Rungrattanrarak - `0.5602`
-5. `68090500416` - Peerawit Umphaisri - `0.5996`
-
-## Reproducibility and quality controls
-
-- SDK lock: `global.json`
-- Analyzer rules + warnings as errors: `Directory.Build.props`
-- CI checks: `.github/workflows/ci.yml`
-- Structured runtime logging in JSON
-- Data-quality gate with `--max-skipped-ratio`
+1. `68090500427` - Atilak Modetad - `0.5701`
+2. `68090500404` - Chanyanuch Thanusorn - `0.5708`
+3. `68090500429` - Asnawee Ezor - `0.5896`
+4. `68090500421` - Yossakon Rungrattanrarak - `0.5965`
+5. `68090500416` - Peerawit Umphaisri - `0.6358`

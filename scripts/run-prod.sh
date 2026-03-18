@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_PATH="$ROOT_DIR/src/MbtiEnterpriseSimilarity.App"
+MAIN_BUILD_DIR="$ROOT_DIR/build/classes/main"
 
-INPUT_PATH="${INPUT_PATH:-$ROOT_DIR/data/CSS121_MBTI_2026_68.csv}"
+INPUT_PATH="${INPUT_PATH:-$ROOT_DIR/data/CSS121_MBTI_2026_68_2.csv}"
 TARGET_ID="${TARGET_ID:-68090500418}"
 TOP_N="${TOP_N:-5}"
 MODE="${MODE:-zscore}"
@@ -13,14 +13,8 @@ EXCLUDE_IDS="${EXCLUDE_IDS:-99999999999}"
 OUTPUT_DIR="${OUTPUT_DIR:-$ROOT_DIR/reports}"
 WEIGHTS="${WEIGHTS:-}"
 RUN_TESTS="${RUN_TESTS:-1}"
-WITH_R_VIS="${WITH_R_VIS:-0}"
 KEEP_ONLY_LATEST="${KEEP_ONLY_LATEST:-1}"
 KEEP_REPORT_FORMAT="${KEEP_REPORT_FORMAT:-md}" # md | json | both
-
-if [[ ! -f "$PROJECT_PATH/MbtiEnterpriseSimilarity.App.csproj" ]]; then
-  echo "[ERROR] Project file not found at $PROJECT_PATH"
-  exit 1
-fi
 
 if [[ ! -f "$INPUT_PATH" ]]; then
   echo "[ERROR] Input CSV not found at $INPUT_PATH"
@@ -29,14 +23,16 @@ fi
 
 if [[ "$RUN_TESTS" == "1" ]]; then
   echo "[INFO] Running build + tests..."
-  dotnet build "$ROOT_DIR/MbtiEnterpriseSimilarity.sln"
-  dotnet test "$ROOT_DIR/MbtiEnterpriseSimilarity.sln" --no-build
+  "$ROOT_DIR/scripts/test.sh"
+else
+  echo "[INFO] Running build..."
+  "$ROOT_DIR/scripts/build.sh"
 fi
 
 mkdir -p "$OUTPUT_DIR"
 
 CMD=(
-  dotnet run --project "$PROJECT_PATH" --
+  java -cp "$MAIN_BUILD_DIR" com.mbti.similarity.Main
   --input "$INPUT_PATH"
   --target-id "$TARGET_ID"
   --top "$TOP_N"
@@ -112,23 +108,6 @@ cleanup_reports_keep_latest() {
 
 if [[ "$KEEP_ONLY_LATEST" == "1" ]]; then
   cleanup_reports_keep_latest "$OUTPUT_DIR" "$KEEP_REPORT_FORMAT"
-fi
-
-if [[ "$WITH_R_VIS" == "1" ]]; then
-  if command -v Rscript >/dev/null 2>&1; then
-    echo "[INFO] Running R visualization script..."
-    Rscript "$ROOT_DIR/analytics/visualize_report.R" \
-      --input "$INPUT_PATH" \
-      --target-id "$TARGET_ID" \
-      --top "$TOP_N" \
-      --mode "$MODE" \
-      --exclude-id "$EXCLUDE_IDS" \
-      --weights "${WEIGHTS:-Ne=1,Ni=1,Te=1,Ti=1,Se=1,Si=1,Fe=1,Fi=1}" \
-      --max-skipped-ratio "$MAX_SKIPPED_RATIO" \
-      --output-dir "$OUTPUT_DIR/r"
-  else
-    echo "[WARN] WITH_R_VIS=1 but Rscript is not installed. Skipping R visualization."
-  fi
 fi
 
 echo "[INFO] Done. Reports are in: $OUTPUT_DIR"

@@ -16,16 +16,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          global-json-file: global.json
-
-      - name: Restore
-        run: dotnet restore MbtiEnterpriseSimilarity.sln
+          distribution: temurin
+          java-version: '17'
 
       - name: Build
-        run: dotnet build MbtiEnterpriseSimilarity.sln --configuration Release --no-restore
+        run: ./scripts/build.sh
 
       - name: Test
-        run: dotnet test MbtiEnterpriseSimilarity.sln --configuration Release --no-build --collect:"XPlat Code Coverage"
+        run: ./scripts/test.sh
