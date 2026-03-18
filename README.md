@@ -59,7 +59,7 @@ The tool supports two scoring modes:
 
 ## Dataset used in this project
 
-- `data/CSS121_MBTI_2026_68.csv`
+The current dataset has a blank first header cell. The CSV loader handles that case safely by treating the first column as `ID`.
 
 ## Requirements
 
@@ -68,9 +68,13 @@ The tool supports two scoring modes:
 
 ## Quick start
 
-```bash
-dotnet build
-dotnet test
+- `src/main/java/` main source code
+- `src/test/java/` plain Java test suite
+- `data/` CSV datasets
+- `scripts/build.sh` compile with `javac`
+- `scripts/test.sh` compile and run all tests
+- `scripts/run-prod.sh` default production run
+- `reports/` generated outputs
 
 dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
   --input "./data/CSS121_MBTI_2026_68.csv" \
@@ -85,17 +89,14 @@ dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
 ## One-command production run
 
 ```bash
-./scripts/run-prod.sh
+./scripts/build.sh
 ```
 
 Example with custom settings:
 
 ```bash
-EXCLUDE_IDS="99999999999,68090500456" \
-MAX_SKIPPED_RATIO=0.2 \
-MODE=zscore \
-WEIGHTS="Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
-./scripts/run-prod.sh
+mkdir -p build/classes/main
+javac -d build/classes/main $(find src/main/java -name '*.java' | sort)
 ```
 
 ### `run-prod.sh` environment variables
@@ -129,53 +130,71 @@ If you want both report files, set `KEEP_REPORT_FORMAT=both`.
 
 ## Docker (reproducible runtime)
 
-Build image:
+Default run:
 
 ```bash
-docker build -t mbti-similarity:latest .
+./scripts/run-prod.sh
 ```
 
-Run with defaults:
+Direct run:
 
 ```bash
-docker run --rm -v "$(pwd)/reports:/app/reports" mbti-similarity:latest
-```
-
-Run with custom arguments:
-
-```bash
-docker run --rm -v "$(pwd)/reports:/app/reports" mbti-similarity:latest \
-  --input /app/data/CSS121_MBTI_2026_68.csv \
+java -cp build/classes/main com.mbti.similarity.Main \
+  --input "./data/CSS121_MBTI_2026_68_2.csv" \
   --target-id 68090500418 \
   --top 5 \
   --max-skipped-ratio 0.2 \
   --exclude-id 99999999999 \
   --mode zscore \
+  --output-dir "./reports"
+```
+
+Run with custom arguments:
+
+```bash
+java -cp build/classes/main com.mbti.similarity.Main \
+  --input "./data/CSS121_MBTI_2026_68_2.csv" \
+  --target-id 68090500418 \
+  --mode zscore \
   --weights "Ne=1.2,Ni=1.2,Te=1,Ti=1,Se=0.8,Si=0.8,Fe=1,Fi=1" \
-  --output-dir /app/reports
+  --output-dir "./reports"
 ```
 
 ## Optional R visualization
 
 Restore locked R packages first:
 
-```bash
-Rscript -e 'renv::restore(prompt = FALSE)'
-```
+`./scripts/run-prod.sh` uses these defaults:
 
 Run R analytics:
 
-```bash
-Rscript ./analytics/visualize_report.R \
-  --input "./data/CSS121_MBTI_2026_68.csv" \
-  --target-id 68090500418 \
-  --top 5 \
-  --mode zscore \
-  --exclude-id 99999999999 \
-  --max-skipped-ratio 0.2 \
-  --weights "Ne=1,Ni=1,Te=1,Ti=1,Se=1,Si=1,Fe=1,Fi=1" \
-  --output-dir "./reports/r"
-```
+Supported environment variables:
+
+- `INPUT_PATH`
+- `TARGET_ID`
+- `TOP_N`
+- `MODE`
+- `WEIGHTS`
+- `EXCLUDE_IDS`
+- `MAX_SKIPPED_RATIO`
+- `OUTPUT_DIR`
+- `RUN_TESTS`
+- `KEEP_ONLY_LATEST`
+- `KEEP_REPORT_FORMAT`
+
+## Current Reference Result
+
+Configuration:
+
+- dataset: `data/CSS121_MBTI_2026_68_2.csv`
+- target: `68090500418`
+- mode: `zscore`
+- excluded IDs: `99999999999`
+- weights: equal
+- valid rows: `57`
+- skipped rows: `0`
+
+Top 5 matches:
 
 R outputs:
 
