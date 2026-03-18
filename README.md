@@ -1,6 +1,8 @@
 # MBTI Similarity Analyzer
 
-This repository contains a Java command-line application for a CSS121 assignment. It finds the students whose MBTI cognitive function scores are most similar to a target student across these eight dimensions:
+This repository contains a production-style CLI project for a CSS121 Data Science Application assignment.
+
+The goal is simple: given a target student ID, find the Top-N students with the most similar cognitive function profile across these eight dimensions:
 
 - `Ne`
 - `Ni`
@@ -11,41 +13,60 @@ This repository contains a Java command-line application for a CSS121 assignment
 - `Fe`
 - `Fi`
 
-The project is implemented with plain Java 17 and `javac` only. There is no Maven, Gradle, or .NET dependency left in the codebase.
+Rows with incomplete score data are skipped automatically.
 
-## Instructor Quick Start
+## How similarity is calculated
 
-If Java 17 is already installed, these commands are enough:
+The analyzer uses weighted Euclidean distance:
 
-```bash
-git clone https://github.com/ParkPawapon/mbti-similarity.git
-cd mbti-similarity
-./scripts/test.sh
-./scripts/run-prod.sh
-```
+`distance = sqrt( sum( w_i * (x_i - y_i)^2 ) )`
 
-The default production run uses `data/CSS121_MBTI_2026_68_2.csv` and writes the latest Markdown report to `reports/`.
+- `w_i` is the weight of each dimension.
+- Weights are always normalized so that `sum(w_i) = 1`.
+- Lower distance means higher similarity.
 
-## Dataset
+The tool supports two scoring modes:
 
-Primary dataset:
+- `raw`: use original values directly.
+- `zscore`: normalize each dimension with z-score before distance calculation.
 
-- `data/CSS121_MBTI_2026_68_2.csv`
+## Key capabilities
+
+- Exclude special IDs with `--exclude-id` (supports multiple IDs).
+- Choose `raw` or `zscore` mode.
+- Provide custom weights with strict validation.
+- Enforce data quality with `--max-skipped-ratio`.
+- Export both Markdown and JSON reports.
+- Structured JSON logging with a per-run `runId`.
+- Unit and integration tests.
+- CI pipeline (restore/build/test).
+- Reproducible `.NET` setup via `global.json`.
+- Reproducible container runtime via `Dockerfile`.
+- One-command production runner: `./scripts/run-prod.sh`.
+- Optional R-based visualization/reporting.
+
+## Repository structure
+
+- `data/` - input CSV files
+- `src/MbtiEnterpriseSimilarity.App/` - main CLI application
+- `tests/MbtiEnterpriseSimilarity.Tests/` - test suite
+- `reports/` - generated outputs
+- `scripts/run-prod.sh` - one-command production runner
+- `analytics/visualize_report.R` - optional R analytics/visualization
+- `renv.lock` - locked R environment
+- `global.json` - locked .NET SDK
+- `.github/workflows/ci.yml` - CI workflow
+
+## Dataset used in this project
 
 The current dataset has a blank first header cell. The CSV loader handles that case safely by treating the first column as `ID`.
 
-## Features
+## Requirements
 
-- `raw` and `zscore` similarity modes
-- weighted Euclidean distance
-- custom dimension weights with validation
-- repeated or comma-separated `--exclude-id`
-- data-quality gate with `--max-skipped-ratio`
-- console summary output
-- Markdown and JSON report export
-- plain Java test harness for unit and integration coverage
+- .NET SDK from `global.json` (currently `9.0.305`)
+- Optional: R (`Rscript`) if you want visualization outputs
 
-## Project Structure
+## Quick start
 
 - `src/main/java/` main source code
 - `src/test/java/` plain Java test suite
@@ -55,32 +76,59 @@ The current dataset has a blank first header cell. The CSV loader handles that c
 - `scripts/run-prod.sh` default production run
 - `reports/` generated outputs
 
-## Requirements
+dotnet run --project src/MbtiEnterpriseSimilarity.App -- \
+  --input "./data/CSS121_MBTI_2026_68.csv" \
+  --target-id 68090500418 \
+  --top 5 \
+  --max-skipped-ratio 0.2 \
+  --exclude-id 99999999999 \
+  --mode zscore \
+  --output-dir "./reports"
+```
 
-- Java 17 or newer
-- `javac`
-- a POSIX shell for the scripts in `scripts/`
-
-## Build
+## One-command production run
 
 ```bash
 ./scripts/build.sh
 ```
 
-Manual compile:
+Example with custom settings:
 
 ```bash
 mkdir -p build/classes/main
 javac -d build/classes/main $(find src/main/java -name '*.java' | sort)
 ```
 
-## Test
+### `run-prod.sh` environment variables
 
-```bash
-./scripts/test.sh
-```
+- `INPUT_PATH`
+- `TARGET_ID`
+- `TOP_N`
+- `MODE`
+- `WEIGHTS`
+- `EXCLUDE_IDS`
+- `MAX_SKIPPED_RATIO`
+- `OUTPUT_DIR`
+- `RUN_TESTS` (`1`/`0`)
+- `WITH_R_VIS` (`1`/`0`)
+- `KEEP_ONLY_LATEST` (`1`/`0`, default: `1`)
+- `KEEP_REPORT_FORMAT` (`md`/`json`/`both`, default: `md`)
 
-## Run
+Default behavior keeps only the latest Markdown report in `reports/`.
+If you want both report files, set `KEEP_REPORT_FORMAT=both`.
+
+## CLI arguments
+
+- `--input` (required): path to the CSV file
+- `--target-id` (required): target student ID
+- `--top` (optional, default: `5`): number of matches to return
+- `--output-dir` (optional, default: `./output`): output directory
+- `--exclude-id` (optional): IDs to exclude (repeat flag or comma-separated)
+- `--mode` (optional, default: `raw`): `raw` or `zscore`
+- `--weights` (optional): `Ne=...,Ni=...,Te=...,Ti=...,Se=...,Si=...,Fe=...,Fi=...`
+- `--max-skipped-ratio` (optional, default: `1.0`): allowed skipped-row ratio in `[0, 1]`
+
+## Docker (reproducible runtime)
 
 Default run:
 
@@ -101,7 +149,7 @@ java -cp build/classes/main com.mbti.similarity.Main \
   --output-dir "./reports"
 ```
 
-Example with custom weights:
+Run with custom arguments:
 
 ```bash
 java -cp build/classes/main com.mbti.similarity.Main \
@@ -112,28 +160,13 @@ java -cp build/classes/main com.mbti.similarity.Main \
   --output-dir "./reports"
 ```
 
-## CLI Arguments
+## Optional R visualization
 
-- `--input` required path to the CSV file
-- `--target-id` required student ID
-- `--top` optional, default `5`
-- `--output-dir` optional, default `./output`
-- `--exclude-id` optional, repeatable or comma-separated
-- `--mode` optional, `raw` or `zscore`, default `raw`
-- `--weights` optional, format `Ne=...,Ni=...,Te=...,Ti=...,Se=...,Si=...,Fe=...,Fi=...`
-- `--max-skipped-ratio` optional, range `[0, 1]`, default `1.0`
-
-## Default Production Configuration
+Restore locked R packages first:
 
 `./scripts/run-prod.sh` uses these defaults:
 
-- input: `data/CSS121_MBTI_2026_68_2.csv`
-- target: `68090500418`
-- top: `5`
-- mode: `zscore`
-- excluded IDs: `99999999999`
-- max skipped ratio: `0.2`
-- output directory: `reports/`
+Run R analytics:
 
 Supported environment variables:
 
@@ -163,8 +196,29 @@ Configuration:
 
 Top 5 matches:
 
-1. `68090500427` - Atilak Modetad - `0.5701`
-2. `68090500404` - Chanyanuch Thanusorn - `0.5708`
-3. `68090500429` - Asnawee Ezor - `0.5896`
-4. `68090500421` - Yossakon Rungrattanrarak - `0.5965`
-5. `68090500416` - Peerawit Umphaisri - `0.6358`
+R outputs:
+
+- `top_matches_r.csv`
+- `summary_r.txt`
+- `top_matches_barplot.png`
+- `dimension_diff_heatmap.png`
+
+## Example result (equal weights, z-score mode)
+
+Target: `68090500418`
+
+Top 5 matches:
+
+1. `68090500404` - Chanyanuch Thanusorn - `0.5446`
+2. `68090500427` - Atilak Modetad - `0.5472`
+3. `68090500429` - Asnawee Ezor - `0.5597`
+4. `68090500421` - Yossakon Rungrattanrarak - `0.5602`
+5. `68090500416` - Peerawit Umphaisri - `0.5996`
+
+## Reproducibility and quality controls
+
+- SDK lock: `global.json`
+- Analyzer rules + warnings as errors: `Directory.Build.props`
+- CI checks: `.github/workflows/ci.yml`
+- Structured runtime logging in JSON
+- Data-quality gate with `--max-skipped-ratio`
